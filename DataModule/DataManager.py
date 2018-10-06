@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import logging
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -83,6 +85,7 @@ class DataManager(object):
 
     @staticmethod
     def _download_data_alpha_vantage(symbol, interval):
+        LOGGER = logging.getLogger()
 
         # Prepare request
         params = {'symbol': symbol, 'outputsize': 'full', 'datatype': 'json',
@@ -97,8 +100,23 @@ class DataManager(object):
         # Download data
         response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
         response_json = response.json()
-        time_series_key = [key for key in response_json.keys() if 'Time Series' in key][0]
-        data_json = response_json[time_series_key]
+
+        # If we hit API limit, retry in 65s
+        if 'Information' in response_json.keys():
+            LOGGER.warning('Probably hit API limit, trying again in 65s')
+            time.sleep(65)
+            response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
+            response_json = response.json()
+        time_series_key = [key for key in response_json.keys() if 'Time Series' in key]
+
+        # If fail to find time series data in response, try again in 20s
+        if len(time_series_key) < 1:
+            LOGGER.warning('Failed to find time series in response, trying again in 20s')
+            time.sleep(20)
+            response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
+            response_json = response.json()
+            time_series_key = [key for key in response_json.keys() if 'Time Series' in key]
+        data_json = response_json[time_series_key[0]]
 
         # Format into Data object
         data_frames = []

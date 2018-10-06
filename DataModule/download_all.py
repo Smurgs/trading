@@ -2,17 +2,12 @@ import os
 import json
 import time
 import logging
+from datetime import datetime
 
-import definitions
 from DataModule.DataManager import DataManager
 
 
 def main():
-    logging.basicConfig(format='%(asctime)s - [%(levelname)s] - %(message)s',
-                        datefmt='%d-%b-%y %H:%M:%S',
-                        level=logging.INFO,
-                        filename=os.path.join(definitions.DATABASE_DIR, 'download_log'))
-
     LOGGER = logging.getLogger()
     LOGGER.info('Download all script starting up....')
 
@@ -22,7 +17,30 @@ def main():
     sp500 = f['sp500']
 
     dm = DataManager()
+    today = datetime.today()
     for symbol in indexes + sp500:
+
+        # Skip if we already downloaded today
+        daily_path = dm.build_file_path(symbol, today.year)
+        minute_path = dm.build_file_path(symbol, today.year, today.month)
+        if os.path.isfile(daily_path) and os.path.isfile(minute_path):
+
+            # Get last storage date of daily data
+            with open(daily_path) as infile:
+                daily_json = json.load(infile)
+            daily_last = daily_json['meta']['date_stored']
+
+            # Get last storage date of minute data
+            with open(minute_path) as infile:
+                minute_json = json.load(infile)
+            minute_last = minute_json['meta']['date_stored']
+
+            if today.year == daily_last.year == minute_last.year:
+                if today.month == daily_last.month == minute_last.month:
+                    if today.day == daily_last.day == minute_last.day:
+                        LOGGER.info('Skipping %s' % symbol)
+                        continue
+
         LOGGER.info('Downloading %s' % symbol)
         dm.download(symbol)
         time.sleep(15)

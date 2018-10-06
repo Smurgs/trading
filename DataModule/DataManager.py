@@ -97,33 +97,40 @@ class DataManager(object):
         else:
             raise ValueError("Download interval can only be one minute/day")
 
-        # Download data
-        response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
-        response_json = response.json()
+        retries = 5
+        delay = 30
+        while True:
+            try:
+                # Download data
+                response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
+                response_json = response.json()
 
-        # If error message
-        if 'Error Message' in response_json.keys():
-            LOGGER.error('Received error from API: %s' % response_json['Error Message'])
-            exit(-1)
+                # API error
+                if 'Error Message' in response_json.keys():
+                    LOGGER.error('Received error from API for symbol %s: %s' % (symbol, response_json['Error Message']))
+                    return None
 
-        # If we hit API limit, retry in 65s
-        if 'Information' in response_json.keys():
-            LOGGER.warning('Probably hit API limit, trying again in 65s')
-            time.sleep(65)
-            response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
-            response_json = response.json()
-        time_series_key = [key for key in response_json.keys() if 'Time Series' in key]
+                # If we hit API limit, retry in 65s
+                if 'Information' in response_json.keys():
+                    LOGGER.warning('Probably hit API limit, trying again in %ds' % delay)
 
-        # If fail to find time series data in response, try again in 20s
-        if len(time_series_key) < 1:
-            LOGGER.warning('Failed to find time series in response, trying again in 20s')
-            time.sleep(20)
-            response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
-            response_json = response.json()
-            time_series_key = [key for key in response_json.keys() if 'Time Series' in key]
-        data_json = response_json[time_series_key[0]]
+                # If fail to find time series data in response, try again in 20s
+                time_series_key = [key for key in response_json.keys() if 'Time Series' in key]
+                if len(time_series_key) < 1:
+                    LOGGER.warning('Failed to find time series in response, trying again in %ds' % delay)
+                else:
+                    break
+            except:
+                LOGGER.warning('Unexpected error was thrown while querying API for symbol %s' % symbol)
+
+            retries -= 1
+            if retries == 0:
+                LOGGER.error('Failed to query API for symbol %s after multiple attempts' % symbol)
+                return None
+            time.sleep(delay)
 
         # Format into Data object
+        data_json = response_json[time_series_key[0]]
         data_frames = []
         if interval == Data.Interval.ONE_DAY:
             key_date_pairs = [(x, datetime.strptime(x, '%Y-%m-%d')) for x in data_json.keys()]
@@ -146,7 +153,7 @@ class DataManager(object):
 
         return Data(symbol, interval, data_frames)
 
-    def _build_file_path(self, symbol, year, month=None):
+    def build_file_path(self, symbol, year, month=None):
         file_path = os.path.join(self.database_dir, symbol)
         file_path = os.path.join(file_path, str(year))
         if month is not None:
@@ -161,7 +168,7 @@ class DataManager(object):
         iter = datetime(year=start.year, month=1 if interval == Data.Interval.ONE_DAY else start.month, day=1)
         inc = relativedelta(years=1) if interval == Data.Interval.ONE_DAY else relativedelta(months=1)
         while iter < end:
-            file_path_lst.append(self._build_file_path(symbol, iter.year, None if interval == Data.Interval.ONE_DAY else iter.month))
+            file_path_lst.append(self.build_file_path(symbol, iter.year, None if interval == Data.Interval.ONE_DAY else iter.month))
             iter += inc
 
         for file_path in file_path_lst:
@@ -185,7 +192,7 @@ class DataManager(object):
         for year in years_dict.keys():
             if data.interval == Data.Interval.ONE_DAY:
                 year_data = Data(data.symbol, data.interval, years_dict[year])
-                file_path = self._build_file_path(data.symbol, year)
+                file_path = self.build_file_path(data.symbol, year)
                 path_data_pairs.append((file_path, year_data))
             else:
                 months_dict = {month: [] for month in range(years_dict[year][0].start.month, years_dict[year][-1].end.month+1)}
@@ -194,7 +201,7 @@ class DataManager(object):
 
                 for month in months_dict.keys():
                     month_data = Data(data.symbol, data.interval, months_dict[month])
-                    file_path = self._build_file_path(data.symbol, year, month)
+                    file_path = self.build_file_path(data.symbol, year, month)
                     path_data_pairs.append((file_path, month_data))
 
         for file_path, file_data in path_data_pairs:

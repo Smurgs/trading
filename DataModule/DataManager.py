@@ -101,6 +101,11 @@ class DataManager(object):
         response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
         response_json = response.json()
 
+        # If error message
+        if 'Error Message' in response_json.keys():
+            LOGGER.error('Received error from API: %s' % response_json['Error Message'])
+            exit(-1)
+
         # If we hit API limit, retry in 65s
         if 'Information' in response_json.keys():
             LOGGER.warning('Probably hit API limit, trying again in 65s')

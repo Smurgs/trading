@@ -1,10 +1,12 @@
+import os
 import json
 import requests
+from datetime import datetime
 
-from definitions import *
 from Questrade import *
+from Questrade.Symbol import Symbol
 
-
+config_file = os.path.join(os.path.dirname(__file__), 'config')
 auth_url = 'https://login.questrade.com/oauth2/token'
 
 
@@ -20,7 +22,7 @@ class QuestradeWrapper(object):
         return r.json()
 
     def authenticate(self):
-        with open(os.path.join(ROOT_DIR, 'config')) as f:
+        with open(config_file) as f:
             data = json.load(f)
         refresh_token = data['refresh_token']
 
@@ -31,7 +33,7 @@ class QuestradeWrapper(object):
             return False
 
         data = r.json()
-        with open(os.path.join(ROOT_DIR, 'config'), 'w') as f:
+        with open(config_file, 'w') as f:
             json.dump(data, f)
 
         self.access_token = data['access_token']
@@ -40,10 +42,10 @@ class QuestradeWrapper(object):
         return True
 
     def set_refresh_token(self, token):
-        with open(os.path.join(ROOT_DIR, 'config')) as f:
+        with open(config_file) as f:
             data = json.load(f)
         data['refresh_token'] = token
-        with open(os.path.join(ROOT_DIR, 'config'), 'w') as f:
+        with open(config_file, 'w') as f:
             json.dump(data, f)
 
     def get_time(self):
@@ -78,7 +80,7 @@ class QuestradeWrapper(object):
 
     def search_symbol(self, ticker):
         data = self._get_json('%sv1/symbols/search?prefix=%s' % (self.api_server, ticker))
-        return data['symbols'][0]
+        return Symbol(data['symbols'][0])
         #return [Symbol(x) for x in data['symbols']]
 
     def get_options(self, symbol_id):
@@ -101,7 +103,21 @@ class QuestradeWrapper(object):
         data = self._get_json(uri)
         return [Candle(x) for x in data['candles']]
 
+    @staticmethod
+    def datetime_to_string(dt):
+        return '%d-%02d-%02dT%02d:%02d:00-04:00' % (dt.year, dt.month, dt.day, dt.hour, dt.minute)
+
+    @staticmethod
+    def string_to_datetime(s):
+        return datetime.strptime(s[:-13], '%Y-%m-%dT%H:%M:%S')
+
 
 if __name__ == '__main__':
     qw = QuestradeWrapper()
     qw.authenticate()
+    sym = qw.search_symbol('AAPL')
+    start = datetime(2018, 10, 5)
+    end = datetime(2018, 10, 6)
+    response = qw.get_candles(sym, qw.datetime_to_string(start), qw.datetime_to_string(end), 'OneMinute')
+    print([x.start for x in response])
+    print(len(response))

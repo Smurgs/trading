@@ -8,7 +8,7 @@ from DataModule.DataManager import DataManager
 
 
 def main():
-    logging.basicConfig(format='%(asctime)s - %(message)s',
+    logging.basicConfig(format='%(asctime)s - [%(levelname)s] - %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S',
                         level=logging.INFO,
                         filename=os.path.join(definitions.DATABASE_DIR, 'download_log'))
@@ -30,4 +30,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

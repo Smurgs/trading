@@ -97,7 +97,8 @@ class DataManager(object):
         # Download data
         response = requests.get(DataManager.ALPHA_VANTAGE_URI, params=params)
         response_json = response.json()
-        data_json = response_json[list(response_json.keys())[1]]
+        time_series_key = [key for key in response_json.keys() if 'Time Series' in key][0]
+        data_json = response_json[time_series_key]
 
         # Format into Data object
         data_frames = []

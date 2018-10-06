@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-import config
+import definitions
 from DataModule.Data import Data
 from DataModule.DataFrame import DataFrame
 from Questrade import QuestradeWrapper
@@ -19,7 +19,7 @@ class DataManager(object):
     ALPHA_VANTAGE_DAILY = 'TIME_SERIES_DAILY'
 
     def __init__(self):
-        self.database_dir = config.DATABASE_DIR
+        self.database_dir = definitions.DATABASE_DIR
         if not os.path.isdir(self.database_dir):
             raise NotADirectoryError('Database directory does not exist.')
 

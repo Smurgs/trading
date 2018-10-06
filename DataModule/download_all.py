@@ -28,12 +28,12 @@ def main():
             # Get last storage date of daily data
             with open(daily_path) as infile:
                 daily_json = json.load(infile)
-            daily_last = daily_json['meta']['date_stored']
+            daily_last = datetime.strptime(daily_json['meta']['date_stored'], '%Y-%m-%d %H:%M')
 
             # Get last storage date of minute data
             with open(minute_path) as infile:
                 minute_json = json.load(infile)
-            minute_last = minute_json['meta']['date_stored']
+            minute_last = datetime.strptime(minute_json['meta']['date_stored'], '%Y-%m-%d %H:%M')
 
             if today.year == daily_last.year == minute_last.year:
                 if today.month == daily_last.month == minute_last.month:

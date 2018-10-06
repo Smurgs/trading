@@ -1,204 +1,203 @@
 from enum import Enum
-from enum import auto
 
 
 class Currency(Enum):
-    USD = auto()
-    CAD = auto()
+    USD = 0
+    CAD = 1
 
 
 class ListingExchange(Enum):
-    TSX = auto()
-    TSXV = auto()
-    CNSX = auto()
-    MX = auto()
-    NASDAQ = auto()
-    NYSE = auto()
-    NYSEAM = auto()
-    ARCA = auto()
-    OPRA = auto()
-    PinkSheets = auto()
-    OTCBB = auto()
+    TSX = 0
+    TSXV = 1
+    CNSX = 2
+    MX = 3
+    NASDAQ = 4
+    NYSE = 5
+    NYSEAM = 6
+    ARCA = 7
+    OPRA = 8
+    PinkSheets = 9
+    OTCBB = 10
 
 
 class AccountType(Enum):
-    Cash = auto()
-    Margin = auto()
-    TFSA = auto()
-    RRSP = auto()
-    SRRSP = auto()
-    LRRSP = auto()
-    LIRA = auto()
-    LIF = auto()
-    RIF = auto()
-    SRIF = auto()
-    LRIF = auto()
-    RRIF = auto()
-    PRIF = auto()
-    RESP = auto()
-    FRESP = auto()
+    Cash = 0
+    Margin = 1
+    TFSA = 2
+    RRSP = 3
+    SRRSP = 4
+    LRRSP = 5
+    LIRA = 6
+    LIF = 7
+    RIF = 8
+    SRIF = 9
+    LRIF = 10
+    RRIF = 11
+    PRIF = 12
+    RESP = 13
+    FRESP = 14
 
 
 class ClientAccountType(Enum):
-    Individual = auto()
-    Joint = auto()
-    #Informal Trust = auto()
-    Corporation = auto()
-    #Investment Club = auto()
-    #Formal Trust = auto()
-    Partnership = auto()
-    #Sole Proprietorship = auto()
-    Family = auto()
-    #Joint and Informal Trust = auto()
-    Institution = auto()
+    Individual = 0
+    Joint = 1
+    #Informal Trust = 2
+    Corporation = 3
+    #Investment Club = 4
+    #Formal Trust = 5
+    Partnership = 6
+    #Sole Proprietorship = 7
+    Family = 8
+    #Joint and Informal Trust = 9
+    Institution = 10
 
 
 class AccountStatus(Enum):
-    Active = auto()
-    #Suspended (Closed) = auto()
-    #Suspended (View Only) = auto()
-    #Liquidate Only = auto()
-    Closed = auto()
+    Active = 0
+    #Suspended (Closed) = 1
+    #Suspended (View Only) = 2
+    #Liquidate Only = 3
+    Closed = 4
 
 
 class TickType(Enum):
-    Up = auto()
-    Down = auto()
-    Equal = auto()
+    Up = 0
+    Down = 1
+    Equal = 2
 
 
 class OptionType(Enum):
-    Call = auto()
-    Put = auto()
+    Call = 0
+    Put = 1
 
 
 class OptionDurationType(Enum):
-    Weekly = auto()
-    Monthly = auto()
-    Quarterly = auto()
-    LEAP = auto()
+    Weekly = 0
+    Monthly = 1
+    Quarterly = 2
+    LEAP = 3
 
 
 class OptionExerciseType(Enum):
-    American = auto()
-    European = auto()
+    American = 0
+    European = 1
 
 
 class SecurityType(Enum):
-    Stock = auto()
-    Option = auto()
-    Bond = auto()
-    Right = auto()
-    Gold = auto()
-    MutualFund = auto()
-    Index = auto()
+    Stock = 0
+    Option = 1
+    Bond = 2
+    Right = 3
+    Gold = 4
+    MutualFund = 5
+    Index = 6
 
 
 class OrderStateFilterType(Enum):
-    All = auto()
-    Open = auto()
-    Closed = auto()
+    All = 0
+    Open = 1
+    Closed = 2
 
 
 class OrderAction(Enum):
-    Buy = auto()
-    Sell = auto()
+    Buy = 0
+    Sell = 1
 
 
 class OrderSide(Enum):
-    Buy = auto()
-    Sell = auto()
-    Short = auto()
-    Cov = auto()
-    BTO = auto()
-    STC = auto()
-    STO = auto()
-    BTC = auto()
+    Buy = 0
+    Sell = 1
+    Short = 2
+    Cov = 3
+    BTO = 4
+    STC = 5
+    STO = 6
+    BTC = 7
 
 
 class OrderType(Enum):
-    Market = auto()
-    Limit = auto()
-    Stop = auto()
-    StopLimit = auto()
-    TrailStopInPercentage = auto()
-    TrailStopInDollar = auto()
-    TrailStopLimitInPercentage = auto()
-    TrailStopLimitInDollar = auto()
-    LimitOnOpen = auto()
-    LimitOnClose = auto()
+    Market = 0
+    Limit = 1
+    Stop = 2
+    StopLimit = 3
+    TrailStopInPercentage = 4
+    TrailStopInDollar = 5
+    TrailStopLimitInPercentage = 6
+    TrailStopLimitInDollar = 7
+    LimitOnOpen = 8
+    LimitOnClose = 9
 
 
 class OrderTimeInForce(Enum):
-    Day = auto()
-    GoodTillCanceled = auto()
-    GoodTillExtendedDay = auto()
-    GoodTillDate = auto()
-    ImmediateOrCancel = auto()
-    FillOrKill = auto()
+    Day = 0
+    GoodTillCanceled = 1
+    GoodTillExtendedDay = 2
+    GoodTillDate = 3
+    ImmediateOrCancel = 4
+    FillOrKill = 5
 
 
 class OrderState(Enum):
-    Failed = auto()
-    Pending = auto()
-    Accepted = auto()
-    Rejected = auto()
-    CancelPending = auto()
-    Canceled = auto()
-    PartialCanceled = auto()
-    Partial = auto()
-    Executed = auto()
-    ReplacePending = auto()
-    Replaced = auto()
-    Stopped = auto()
-    Suspended = auto()
-    Expired = auto()
-    Queued = auto()
-    Triggered = auto()
-    Activated = auto()
-    PendingRiskReview = auto()
-    ContingentOrder = auto()
+    Failed = 0
+    Pending = 1
+    Accepted = 2
+    Rejected = 3
+    CancelPending = 4
+    Canceled = 5
+    PartialCanceled = 6
+    Partial = 7
+    Executed = 8
+    ReplacePending = 9
+    Replaced = 10
+    Stopped = 11
+    Suspended = 12
+    Expired = 13
+    Queued = 14
+    Triggered = 15
+    Activated = 16
+    PendingRiskReview = 17
+    ContingentOrder = 18
 
 
 class HistoricalDataGranularity(Enum):
-    OneMinute = auto()
-    TwoMinutes = auto()
-    ThreeMinutes = auto()
-    FourMinutes = auto()
-    FiveMinutes = auto()
-    TenMinutes = auto()
-    FifteenMinutes = auto()
-    TwentyMinutes = auto()
-    HalfHour = auto()
-    OneHour = auto()
-    TwoHours = auto()
-    FourHours = auto()
-    OneDay = auto()
-    OneWeek = auto()
-    OneMonth = auto()
-    OneYear = auto()
+    OneMinute = 0
+    TwoMinutes = 1
+    ThreeMinutes = 2
+    FourMinutes = 3
+    FiveMinutes = 4
+    TenMinutes = 5
+    FifteenMinutes = 6
+    TwentyMinutes = 7
+    HalfHour = 8
+    OneHour = 9
+    TwoHours = 10
+    FourHours = 11
+    OneDay = 12
+    OneWeek = 13
+    OneMonth = 14
+    OneYear = 15
 
 
 class OrderClass(Enum):
-    Primary = auto()
-    Limit = auto()
-    StopLoss = auto()
+    Primary = 0
+    Limit = 1
+    StopLoss = 2
 
 
 class StrategyTypes(Enum):
-    CoveredCall = auto()
-    MarriedPuts = auto()
-    VerticalCallSpread = auto()
-    VerticalPutSpread = auto()
-    CalendarCallSpread = auto()
-    CalendarPutSpread = auto()
-    DiagonalCallSpread = auto()
-    DiagonalPutSpread = auto()
-    Collar = auto()
-    Straddle = auto()
-    Strangle = auto()
-    ButterflyCall = auto()
-    ButterflyPut = auto()
-    IronButterfly = auto()
-    CondorCall = auto()
-    Custom = auto()
+    CoveredCall = 0
+    MarriedPuts = 1
+    VerticalCallSpread = 2
+    VerticalPutSpread = 3
+    CalendarCallSpread = 4
+    CalendarPutSpread = 5
+    DiagonalCallSpread = 6
+    DiagonalPutSpread = 7
+    Collar = 8
+    Straddle = 9
+    Strangle = 10
+    ButterflyCall = 11
+    ButterflyPut = 12
+    IronButterfly = 13
+    CondorCall = 14
+    Custom = 15

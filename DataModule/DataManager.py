@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+import shutil
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -20,12 +21,12 @@ class DataManager(object):
     ALPHA_VANTAGE_INTRADAY = 'TIME_SERIES_INTRADAY'
     ALPHA_VANTAGE_DAILY = 'TIME_SERIES_DAILY'
 
-    def __init__(self):
-        self.database_dir = definitions.DATABASE_DIR
+    def __init__(self, database_dir=definitions.DATABASE_DIR):
+        self.database_dir = database_dir
         if not os.path.isdir(self.database_dir):
             raise NotADirectoryError('Database directory does not exist.')
 
-    def get(self, symbol, start, end, interval):
+    def get(self, symbol, interval, start, end=None):
         """Returns requested data. If not already in Database, it will be downloaded and saved for future use.
 
         Args:
@@ -37,7 +38,46 @@ class DataManager(object):
         Returns:
             Data: Requested data series
         """
-        return self._load_data(symbol, start, end, interval)
+        today = datetime.today()
+        if end is None:
+            end = today
+
+        # Validate object types
+        if type(start) != datetime or type(end) != datetime:
+            raise AssertionError('Parameters `start` and `end` must be a datetime object')
+        if type(interval) != Data.Interval:
+            raise AssertionError('Parameter `interval` must be a DataManger.Data.Interval enum')
+
+        # Validate request start and end values
+        if start > end:
+            raise ValueError('Paramerter `start` cannot be larger than parameter `end`')
+        if start > today or end > today:
+            raise ValueError('Paramerters `start` and `end` cannot be in the future')
+
+        # Ensure symbol is all upper case
+        symbol = symbol.upper()
+
+        # Only use year/month/day from dates, drop additional info
+        start = datetime(start.year, start.month, start.day)
+        end = datetime(end.year, end.month, end.day)
+
+        # Trim weekends off start and end dates
+        while start.weekday() > 4:
+            start += relativedelta(days=1)
+        while end.weekday() > 4:
+            end -= relativedelta(days=1)
+
+        load_interval = Data.Interval.ONE_DAY if interval == Data.Interval.ONE_DAY else Data.Interval.ONE_MIN
+        try:
+            loaded_data = self._load_data(symbol, load_interval, start, end)
+        except FileNotFoundError:
+            raise ValueError('Database does not have all the data queried for')
+
+        # Change 1min interval to 5/10/15/30min if need be
+        if load_interval != interval:
+            loaded_data = self._rebuild_interval(loaded_data, interval)
+
+        return loaded_data
 
     def download(self, symbol):
         """Download data minute and daily data to store in Database for future use.
@@ -47,14 +87,18 @@ class DataManager(object):
         """
         # Get data
         day_data = self._download_data_alpha_vantage(symbol, Data.Interval.ONE_DAY)
+        if day_data is None:
+            return None
         minute_data = self._download_data_alpha_vantage(symbol, Data.Interval.ONE_MIN)
+        if minute_data is None:
+            return None
 
         # Store data
         self._store_data(day_data)
         self._store_data(minute_data)
 
     @staticmethod
-    def _download_data_questrade(symbol, start, end, interval):
+    def _download_data_questrade(symbol, interval, start, end):
 
         # Prepare request
         qt = QuestradeWrapper()
@@ -89,7 +133,7 @@ class DataManager(object):
 
         # Prepare request
         params = {'symbol': symbol, 'outputsize': 'full', 'datatype': 'json',
-                  'interval': Data.interval_to_string(interval), 'apikey': DataManager.ALPHA_VANTAGE_API_KEY}
+                  'interval': interval, 'apikey': DataManager.ALPHA_VANTAGE_API_KEY}
         if interval == Data.Interval.ONE_DAY:
             params['function'] = DataManager.ALPHA_VANTAGE_DAILY
         elif interval == Data.Interval.ONE_MIN:
@@ -121,7 +165,7 @@ class DataManager(object):
                 else:
                     break
             except:
-                LOGGER.warning('Unexpected error was thrown while querying API for symbol %s' % symbol)
+                LOGGER.warning('Unexpected error while querying API for symbol %s, trying again in %ds' % (symbol, delay))
 
             retries -= 1
             if retries == 0:
@@ -162,24 +206,28 @@ class DataManager(object):
             file_path = os.path.join(file_path, '%s_%d.json' % (symbol, year))
         return file_path
 
-    def _load_data(self, symbol, start, end, interval):
+    def _load_data(self, symbol, interval, start, end):
         data_frames = []
         file_path_lst = []
-        iter = datetime(year=start.year, month=1 if interval == Data.Interval.ONE_DAY else start.month, day=1)
-        inc = relativedelta(years=1) if interval == Data.Interval.ONE_DAY else relativedelta(months=1)
-        while iter < end:
-            file_path_lst.append(self.build_file_path(symbol, iter.year, None if interval == Data.Interval.ONE_DAY else iter.month))
-            iter += inc
+        iterator = datetime(year=start.year, month=1 if interval == Data.Interval.ONE_DAY else start.month, day=1)
+        increment = relativedelta(years=1) if interval == Data.Interval.ONE_DAY else relativedelta(months=1)
+        while iterator < end:
+            file_path_lst.append(self.build_file_path(symbol, iterator.year, None if interval == Data.Interval.ONE_DAY else iterator.month))
+            iterator += increment
 
         for file_path in file_path_lst:
-            if not os.path.isfile(file_path):
-                raise FileNotFoundError('Could not load desired data for %s' % file_path)
+            file_data = self._load_file(file_path)
+            data_frames += file_data.data_frames
+        loaded_data = Data(symbol, interval, data_frames)
+        return Data.chop_unwanted_data(start, end, loaded_data)
 
-            with open(file_path) as infile:
-                data = Data.from_dict(json.load(infile))
-            data_frames += data.data_frames
-        data = Data(symbol, interval, data_frames)
-        return Data.chop_unwanted_data(start, end, data)
+    @staticmethod
+    def _load_file(file_path):
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError('Could not load desired data for %s' % file_path)
+        with open(file_path) as infile:
+            file_data = Data.from_dict(json.load(infile))
+        return file_data
 
     def _store_data(self, data):
         # Split into years (daily data) or months (minute data)
@@ -205,37 +253,89 @@ class DataManager(object):
                     path_data_pairs.append((file_path, month_data))
 
         for file_path, file_data in path_data_pairs:
-            # If file exists, re-write if there is new data
-            if os.path.isfile(file_path):
-                if data.interval == Data.Interval.ONE_DAY:
-                    file_start = datetime(year=file_data.start.year, month=1, day=1)
-                    file_end = datetime(year=file_data.start.year, month=12, day=31)
-                else:
-                    file_start = datetime(year=file_data.start.year, month=file_data.start.month, day=1)
-                    file_end = datetime(year=file_data.start.year, month=file_data.start.month, day=file_data.data_frames[-1].start.day)
-                existing_data = self._load_data(data.symbol, file_start, file_end, data.interval)
-                if file_data.end == existing_data.end:
-                    continue
-                new_frames = [x for x in file_data.data_frames if x.start > existing_data.data_frames[-1].start]
-                file_data = Data(data.symbol, data.interval, existing_data.data_frames + new_frames)
-                os.remove(file_path)
+            self._store_file(file_path, file_data)
 
-            data_to_serialize = Data.to_dict(file_data)
-            data_to_serialize['meta']['date_stored'] = datetime.today().strftime("%Y-%m-%d %H:%M")
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, 'w+') as outfile:
-                json.dump(data_to_serialize, outfile)
+    @staticmethod
+    def _store_file(file_path, file_data):
+        backup_suffix = '.backup'
+
+        # If file exists (usually the case), re-write if there is new data
+        if os.path.isfile(file_path):
+
+            # Check if backup also exists (only when previous store was interrupted)
+            if os.path.isfile(file_path + backup_suffix):
+
+                # If old target is largest, remove backup
+                if os.path.getsize(file_path) >= os.path.getsize(file_path + backup_suffix):
+                    os.remove(file_path + backup_suffix)
+
+                # Else backup is largest, copy to target and remove backup
+                else:
+                    shutil.copyfile(file_path + backup_suffix, file_path)
+                    os.remove(file_path + backup_suffix)
+
+            # Copy old target to backup
+            shutil.copyfile(file_path, file_path + backup_suffix)
+
+            # Get old data
+            existing_data = DataManager._load_file(file_path)
+            new_frames = [x for x in file_data.data_frames if x.start > existing_data.data_frames[-1].start]
+            file_data = Data(existing_data.symbol, existing_data.interval, existing_data.data_frames + new_frames)
+
+            # Delete old target
+            os.remove(file_path)
+
+        # Write new target
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        data_to_serialize = Data.to_dict(file_data)
+        data_to_serialize['meta']['date_stored'] = datetime.today().strftime("%Y-%m-%d %H:%M")
+        with open(file_path, 'w+') as outfile:
+            json.dump(data_to_serialize, outfile)
+
+        # Delete backup (if exists)
+        if os.path.isfile(file_path + backup_suffix):
+            os.remove(file_path + backup_suffix)
+
+    @staticmethod
+    def _rebuild_interval(data, target_interval):
+
+        # Get relative date
+        relative_date = Data.interval_to_relativedate(target_interval)
+
+        # Loop through data frames
+        iter = data.data_frames[0].start
+        target_data_frames = []
+        packet = []
+        count = 0
+
+        for data_frame in data.data_frames:
+            count += 1
+
+            # Add frame to packet to be built
+            if data_frame.start < iter + relative_date:
+                packet.append(data_frame)
+
+            # Build packet
+            if data_frame.end == iter + relative_date:
+                packet_data_frame = DataFrame.combine_frames(packet)
+                target_data_frames.append(packet_data_frame)
+                packet = []
+
+                if count != len(data.data_frames):
+                    iter = data.data_frames[count].start
+
+        return Data(data.symbol, target_interval, target_data_frames)
 
 
 if __name__ == '__main__':
-    dm = DataManager()
+    dm = DataManager('/Volumes/Network Disk/Database')
     #dm.download('AAPL')
-    start = datetime(year=2017, month=9, day=1)
-    end = datetime(year=2017, month=10, day=1)
-    data = dm.get('AAPL', start, end, Data.Interval.ONE_DAY)
+    start = datetime(year=2018, month=10, day=3)
+    end = datetime(year=2018, month=10, day=5)
+    data = dm.get('AAPL', Data.Interval.THIRTY_MIN, start)
     print('Symbol: %s' % data.symbol)
     print('Start: %s' % data.start)
     print('End: %s' % data.end)
-    print('Interval: %s' % Data.interval_to_string(data.interval))
+    print('Interval: %s' % data.interval)
     print('Length: %d' % len(data.data_frames))
     print([DataFrame.to_dict(x) for x in data.data_frames])

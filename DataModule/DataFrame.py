@@ -48,3 +48,15 @@ class DataFrame(object):
         close = json['close']
         volume = json['volume']
         return DataFrame(start, end, open, high, low, close, volume)
+
+    @staticmethod
+    def combine_frames(data_frames):
+        data_frames = sorted(data_frames, key=lambda x: x.start)
+        start = data_frames[0].start
+        end = data_frames[-1].end
+        open = data_frames[0].open
+        close = data_frames[-1].close
+        volume = sum([int(x.volume) for x in data_frames])
+        high = sum([float(x.high) for x in data_frames])
+        low = sum([float(x.low) for x in data_frames])
+        return DataFrame(start, end, open, high, low, close, volume)

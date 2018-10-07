@@ -15,10 +15,14 @@ def main():
         f = json.load(infile)
     indexes = f['indexes']
     sp500 = f['sp500']
+    active = f['active']
 
     dm = DataManager()
     today = datetime.today()
-    for symbol in indexes + sp500:
+    symbols = set(indexes + sp500 + active)
+    count = 0
+    for symbol in symbols:
+        count += 1
 
         # Skip if we already downloaded today
         daily_path = dm.build_file_path(symbol, today.year)
@@ -38,10 +42,10 @@ def main():
             if today.year == daily_last.year == minute_last.year:
                 if today.month == daily_last.month == minute_last.month:
                     if today.day == daily_last.day == minute_last.day:
-                        LOGGER.info('Skipping %s' % symbol)
+                        LOGGER.info('Skipping %s -- %d/%d' % (symbol, count, len(symbols)))
                         continue
 
-        LOGGER.info('Downloading %s' % symbol)
+        LOGGER.info('Downloading %s -- %d/%d' % (symbol, count, len(symbols)))
         dm.download(symbol)
         time.sleep(15)
 

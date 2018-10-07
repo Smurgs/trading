@@ -7,10 +7,12 @@ from DataModule.DataFrame import DataFrame
 class Data(object):
 
     class Interval(Enum):
-        ONE_MIN = 0
-        FIVE_MIN = 1
-        ONE_HOUR = 2
-        ONE_DAY = 3
+        ONE_MIN = '1min'
+        FIVE_MIN = '5min'
+        TEN_MIN = '10min'
+        FIFTEEN_MIN = '15min'
+        THIRTY_MIN = '30min'
+        ONE_DAY = '1day'
 
     def __init__(self, symbol, interval, data_frames):
         """Builds DataModule object that represents a data series for a single stock
@@ -39,7 +41,7 @@ class Data(object):
     def to_dict(data):
         d = {'meta': {'symbol': data.symbol,
                       'year': data.end.year,
-                      'interval': Data.interval_to_string(data.interval)},
+                      'interval': data.interval},
              'data': [DataFrame.to_dict(data_frame) for data_frame in data.data_frames]}
         return d
 
@@ -54,36 +56,17 @@ class Data(object):
         return Data(symbol, interval, data_frames)
 
     @staticmethod
-    def interval_to_string(interval):
-        """Returns string that corresponds to enum.
-
-            Args:
-                interval (Data.Interval): Enum, one of [ONE_MIN | FIVE_MIN | ONE_HOUR | ONE_DAY]
-
-            Returns:
-                str: String that corresponds to enum
-
-            Raises:
-                ValueError: If `interval` is not a valid DataModule.Interval enum
-        """
-        if interval == Data.Interval.ONE_MIN:
-            return '1min'
-        if interval == Data.Interval.FIVE_MIN:
-            return '5min'
-        if interval == Data.Interval.ONE_HOUR:
-            return '1hour'
-        if interval == Data.Interval.ONE_DAY:
-            return '1day'
-        raise ValueError("Provided interval is not a valid option")
-
-    @staticmethod
     def string_to_interval(s):
         if s == '1min':
             return Data.Interval.ONE_MIN
         if s == '5min':
             return Data.Interval.FIVE_MIN
-        if s == '60min':
-            return Data.Interval.ONE_HOUR
+        if s == '10min':
+            return Data.Interval.TEN_MIN
+        if s == '15min':
+            return Data.Interval.FIFTEEN_MIN
+        if s == '30min':
+            return Data.Interval.THIRTY_MIN
         if s == '1day':
             return Data.Interval.ONE_DAY
 
@@ -104,8 +87,12 @@ class Data(object):
             return relativedelta(minutes=1)
         if interval == Data.Interval.FIVE_MIN:
             return relativedelta(minutes=5)
-        if interval == Data.Interval.ONE_HOUR:
-            return relativedelta(hours=1)
+        if interval == Data.Interval.TEN_MIN:
+            return relativedelta(minutes=10)
+        if interval == Data.Interval.FIFTEEN_MIN:
+            return relativedelta(minutes=15)
+        if interval == Data.Interval.THIRTY_MIN:
+            return relativedelta(minutes=30)
         if interval == Data.Interval.ONE_DAY:
             return relativedelta(days=1)
         raise ValueError("Provided interval is not a valid option")

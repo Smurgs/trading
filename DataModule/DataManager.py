@@ -133,7 +133,7 @@ class DataManager(object):
 
         # Prepare request
         params = {'symbol': symbol, 'outputsize': 'full', 'datatype': 'json',
-                  'interval': interval, 'apikey': DataManager.ALPHA_VANTAGE_API_KEY}
+                  'interval': interval.value, 'apikey': DataManager.ALPHA_VANTAGE_API_KEY}
         if interval == Data.Interval.ONE_DAY:
             params['function'] = DataManager.ALPHA_VANTAGE_DAILY
         elif interval == Data.Interval.ONE_MIN:
@@ -328,8 +328,9 @@ class DataManager(object):
 
 
 if __name__ == '__main__':
-    dm = DataManager('/Volumes/Network Disk/Database')
-    #dm.download('AAPL')
+    dm = DataManager('/localdisk/trading')
+    dm.download('COF')
+    exit(1)
     start = datetime(year=2018, month=10, day=3)
     end = datetime(year=2018, month=10, day=5)
     data = dm.get('AAPL', Data.Interval.THIRTY_MIN, start)

@@ -41,7 +41,7 @@ class Data(object):
     def to_dict(data):
         d = {'meta': {'symbol': data.symbol,
                       'year': data.end.year,
-                      'interval': data.interval},
+                      'interval': data.interval.value},
              'data': [DataFrame.to_dict(data_frame) for data_frame in data.data_frames]}
         return d
 

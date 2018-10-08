@@ -238,6 +238,8 @@ class DataManager(object):
         # Save file path and data
         path_data_pairs = []
         for year in years_dict.keys():
+            if len(years_dict[year]) == 0:
+                continue
             if data.interval == Data.Interval.ONE_DAY:
                 year_data = Data(data.symbol, data.interval, years_dict[year])
                 file_path = self.build_file_path(data.symbol, year)

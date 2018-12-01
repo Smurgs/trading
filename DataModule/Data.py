@@ -51,8 +51,6 @@ class Data(object):
         interval = Data.string_to_interval(json['meta']['interval'])
         data_frames = [DataFrame.from_dict(x) for x in json['data']]
         data_frames = sorted(data_frames, key=lambda x: x.end)
-        start = data_frames[0].start
-        end = data_frames[-1].end
         return Data(symbol, interval, data_frames)
 
     @staticmethod

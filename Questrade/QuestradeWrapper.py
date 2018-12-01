@@ -1,10 +1,12 @@
 import os
 import json
-import requests
 from datetime import datetime
 
 from Questrade import *
 from Questrade.Symbol import Symbol
+from Questrade.OptionQuote import OptionQuote
+
+import requests
 
 config_file = os.path.join(os.path.dirname(__file__), 'config')
 auth_url = 'https://login.questrade.com/oauth2/token'
@@ -21,6 +23,10 @@ class QuestradeWrapper(object):
         r = requests.get(uri, headers={'Authorization': self.token_type + ' ' + self.access_token})
         return r.json()
 
+    def _post_json(self, uri, data):
+        r = requests.post(uri, json=data, headers={'Authorization': self.token_type + ' ' + self.access_token})
+        return r.json()
+
     def authenticate(self):
         with open(config_file) as f:
             data = json.load(f)
@@ -29,9 +35,7 @@ class QuestradeWrapper(object):
         params = dict(grant_type='refresh_token', refresh_token=refresh_token)
         r = requests.get(url=auth_url, params=params)
         if r.status_code != 200:
-            print('Failed to authenticate')
-            return False
-
+            raise QuestradeAuthenticationError('Failed to authenticate with Questrade')
         data = r.json()
         with open(config_file, 'w') as f:
             json.dump(data, f)
@@ -81,19 +85,19 @@ class QuestradeWrapper(object):
     def search_symbol(self, ticker):
         data = self._get_json('%sv1/symbols/search?prefix=%s' % (self.api_server, ticker))
         return Symbol(data['symbols'][0])
-        #return [Symbol(x) for x in data['symbols']]
 
-    def get_options(self, symbol_id):
-        pass
+    def get_options_ids(self, symbol_id):
+        data = self._get_json('%sv1/symbols/%s/options' % (self.api_server, str(symbol_id)))
+        return data
 
     def get_market_quote(self, symbol_id):
         data = self._get_json('%sv1/markets/quotes/%s' % (self.api_server, str(symbol_id)))
         return [Quote(x) for x in data['quotes']]
 
-    def get_market_option_quote(self, option_type, underlying_id, expiry_date, min_strike=None, max_strike=None):
-        # TODO: Figure out how to post with a body
-        data = self._get_json('%sv1/markets/quotes/options' % self.api_server)
-        return [OptionQuote(x) for x in data['quotes']]
+    def get_market_option_quote(self, option_ids):
+        payload = {'optionIds': option_ids}
+        data = self._post_json('%sv1/markets/quotes/options' % self.api_server, payload)
+        return [OptionQuote(x) for x in data['optionQuotes']]
 
     def get_candles(self, symbol, start, end, interval):
         uri = self.api_server + 'v1/markets/candles/' + str(symbol.symbolId) + '?'
@@ -112,12 +116,13 @@ class QuestradeWrapper(object):
         return datetime.strptime(s[:-13], '%Y-%m-%dT%H:%M:%S')
 
 
+class QuestradeAuthenticationError(Exception):
+    pass
+
+
 if __name__ == '__main__':
     qw = QuestradeWrapper()
     qw.authenticate()
-    sym = qw.search_symbol('AAPL')
-    start = datetime(2018, 10, 5)
-    end = datetime(2018, 10, 6)
-    response = qw.get_candles(sym, qw.datetime_to_string(start), qw.datetime_to_string(end), 'OneMinute')
-    print([x.start for x in response])
-    print(len(response))
+    sym = qw.search_symbol('GOOGL')
+    qw.get_options_ids(sym.symbolId)
+

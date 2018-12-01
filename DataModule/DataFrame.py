@@ -42,11 +42,11 @@ class DataFrame(object):
     def from_dict(json):
         start = datetime.strptime(json['start'], '%Y-%m-%d %H:%M')
         end = datetime.strptime(json['end'], '%Y-%m-%d %H:%M')
-        open = json['open']
-        high = json['high']
-        low = json['low']
-        close = json['close']
-        volume = json['volume']
+        open = float(json['open'])
+        high = float(json['high'])
+        low = float(json['low'])
+        close = float(json['close'])
+        volume = int(json['volume'])
         return DataFrame(start, end, open, high, low, close, volume)
 
     @staticmethod
@@ -57,6 +57,6 @@ class DataFrame(object):
         open = data_frames[0].open
         close = data_frames[-1].close
         volume = sum([int(x.volume) for x in data_frames])
-        high = sum([float(x.high) for x in data_frames])
-        low = sum([float(x.low) for x in data_frames])
+        high = max([float(x.high) for x in data_frames])
+        low = min([float(x.low) for x in data_frames])
         return DataFrame(start, end, open, high, low, close, volume)

@@ -24,7 +24,7 @@ class DataManager(object):
     def __init__(self, database_dir=definitions.DATABASE_DIR):
         self.database_dir = database_dir
         if not os.path.isdir(self.database_dir):
-            raise NotADirectoryError('Database directory does not exist.')
+            raise NotADirectoryError('Database directory does not exist: %s' % self.database_dir)
 
     def get(self, symbol, interval, start, end=None):
         """Returns requested data. If not already in Database, it will be downloaded and saved for future use.
@@ -77,35 +77,36 @@ class DataManager(object):
         if load_interval != interval:
             loaded_data = self._rebuild_interval(loaded_data, interval)
 
+        # Remove pre/post market data
+        loaded_data = self._remove_pre_post(loaded_data)
+
         return loaded_data
 
     def download(self, symbol):
-        """Download data minute and daily data to store in Database for future use.
+        """Download data minute data to store in Database for future use.
 
             Args:
                 symbol (str): Stock symbol for requested data (ex. 'FB')
         """
-        # Get data
-        day_data = self._download_data_alpha_vantage(symbol, Data.Interval.ONE_DAY)
-        if day_data is None:
-            return None
-        minute_data = self._download_data_alpha_vantage(symbol, Data.Interval.ONE_MIN)
+        today = datetime.today()
+        end_date = datetime(today.year, today.month, today.day)
+        start_date = end_date - relativedelta(days=20)
+        minute_data = self._download_data_questrade(symbol, Data.Interval.ONE_MIN, start_date, end_date)
         if minute_data is None:
             return None
 
         # Store data
-        self._store_data(day_data)
         self._store_data(minute_data)
 
     @staticmethod
-    def _download_data_questrade(symbol, interval, start, end):
+    def _download_data_questrade(symbol, interval, start_date, end_date):
 
         # Prepare request
         qt = QuestradeWrapper()
         qt.authenticate()
         qt_symbol = qt.search_symbol(symbol)
-        qt_start = QuestradeWrapper.datetime_to_string(start)
-        qt_end = QuestradeWrapper.datetime_to_string(end)
+        qt_start = QuestradeWrapper.datetime_to_string(start_date)
+        qt_end = QuestradeWrapper.datetime_to_string(end_date)
         if interval == Data.Interval.ONE_MIN:
             qt_interval = "OneMinute"
         elif interval == Data.Interval.ONE_DAY:
@@ -125,7 +126,7 @@ class DataManager(object):
                                  x.close,
                                  x.volume) for x in qt_candles]
         data = Data(symbol, interval, data_frames)
-        return Data.chop_unwanted_data(start, end, data)
+        return Data.chop_unwanted_data(start_date, end_date, data)
 
     @staticmethod
     def _download_data_alpha_vantage(symbol, interval):
@@ -292,53 +293,82 @@ class DataManager(object):
         data_to_serialize = Data.to_dict(file_data)
         data_to_serialize['meta']['date_stored'] = datetime.today().strftime("%Y-%m-%d %H:%M")
         with open(file_path, 'w+') as outfile:
-            json.dump(data_to_serialize, outfile)
+            json.dump(data_to_serialize, outfile, separators=(',', ':'), indent=2)
 
         # Delete backup (if exists)
         if os.path.isfile(file_path + backup_suffix):
             os.remove(file_path + backup_suffix)
 
     @staticmethod
+    def _remove_pre_post(data):
+        target_data_frames = []
+        for data_frame in data.data_frames:
+            # Don't include pre-market
+            if data_frame.start.hour < 9:
+                continue
+            elif data_frame.start.hour == 9 and data_frame.start.minute < 30:
+                continue
+
+            # Don't include post-market
+            if data_frame.end.hour > 16:
+                continue
+            elif data_frame.end.hour == 4 and data_frame.end.minute > 0:
+                continue
+
+            target_data_frames.append(data_frame)
+
+        return Data(data.symbol, data.interval, target_data_frames)
+
+    @staticmethod
     def _rebuild_interval(data, target_interval):
 
-        # Get relative date
+        # Create list of upper bounds
         relative_date = Data.interval_to_relativedate(target_interval)
+        upper_time_bound = datetime(1899, 1, 1, 9, 30)
+        upper_bounds = []
+        while upper_time_bound < datetime(1899, 1, 1, 16, 0):
+            upper_bounds.append(upper_time_bound + relative_date)
+            upper_time_bound += relative_date
 
         # Loop through data frames
-        iter = data.data_frames[0].start
+        bound_iter = 0
         target_data_frames = []
         packet = []
-        count = 0
-
+        upper_bound = upper_bounds[-1]
         for data_frame in data.data_frames:
-            count += 1
+
+            if data_frame.start.hour >= 16:
+                continue
+
+            if data_frame.end > upper_bound:
+                # Build packet thats ready to be built
+                if len(packet) > 0:
+                    packet_data_frame = DataFrame.combine_frames(packet)
+                    target_data_frames.append(packet_data_frame)
+                    packet = []
+
+                # Increase upper bound
+                while data_frame.end > upper_bound:
+                    upper_bound = datetime(data_frame.end.year, data_frame.end.month, data_frame.end.day,
+                                           upper_bounds[bound_iter].hour, upper_bounds[bound_iter].minute)
+                    bound_iter += 1
+                    if bound_iter == len(upper_bounds):
+                        bound_iter = 0
 
             # Add frame to packet to be built
-            if data_frame.start < iter + relative_date:
-                packet.append(data_frame)
-
-            # Build packet
-            if data_frame.end == iter + relative_date:
-                packet_data_frame = DataFrame.combine_frames(packet)
-                target_data_frames.append(packet_data_frame)
-                packet = []
-
-                if count != len(data.data_frames):
-                    iter = data.data_frames[count].start
+            packet.append(data_frame)
 
         return Data(data.symbol, target_interval, target_data_frames)
 
 
 if __name__ == '__main__':
     dm = DataManager('/localdisk/trading')
-    dm.download('COF')
-    exit(1)
-    start = datetime(year=2018, month=10, day=3)
-    end = datetime(year=2018, month=10, day=5)
-    data = dm.get('AAPL', Data.Interval.THIRTY_MIN, start)
+    start = datetime(year=2018, month=10, day=20)
+    end = datetime(year=2018, month=11, day=7)
+    data = dm._download_data_questrade('PG', Data.Interval.ONE_MIN, start, end)
     print('Symbol: %s' % data.symbol)
     print('Start: %s' % data.start)
     print('End: %s' % data.end)
     print('Interval: %s' % data.interval)
     print('Length: %d' % len(data.data_frames))
-    print([DataFrame.to_dict(x) for x in data.data_frames])
+
